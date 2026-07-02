@@ -3,49 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Map</title>
+    <title>Google-Style Clean Map Router</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     <style>
-        * { box-sizing: border-box; font-family: sans-serif; }
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; }
+        * { box-sizing: border-box; font-family: 'Google Sans', Roboto, Arial, sans-serif; }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: #f1f3f4; }
         #map { height: 100%; width: 100%; position: absolute; z-index: 1; }
-        .sidebar { position: absolute; top: 15px; left: 15px; width: 330px; background: #fff; z-index: 1000; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 40px); overflow-y: auto; }
-        h2 { margin: 0; font-size: 18px; color: #1a1a1a; }
-        .input-group { display: flex; flex-direction: column; gap: 4px; position: relative; }
-        label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; }
-        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
-        .geo-btn { display: none; padding: 8px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 4px; border: 1px dashed #1c7ed6; background: #e9ecef; color: #1c7ed6; text-align: center; margin-top: 4px; }
-        .btn-route { background: #1c7ed6; color: #fff; border: none; padding: 12px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 5px; }
-        .btn-back { background: #6c757d; color: #fff; border: none; padding: 10px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
-        .autocomplete-menu { position: absolute; top: 58px; left: 0; right: 0; background: white; border: 1px solid #ccc; border-radius: 6px; max-height: 180px; overflow-y: auto; z-index: 2000; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
-        .autocomplete-item { padding: 8px 12px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .autocomplete-item:hover { background: #f0f0f0; }
-        .direction-item { font-size: 13px; padding: 8px 0; border-bottom: 1px solid #eee; color: #333; }
+        .sidebar { position: absolute; top: 12px; left: 12px; width: 360px; background: #fff; z-index: 1000; padding: 18px; border-radius: 16px; box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15); display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 24px); overflow-y: auto; }
+        h2 { margin: 0; font-size: 20px; color: #202124; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+        .input-box-wrapper { position: relative; display: flex; align-items: center; background: #f1f3f4; border-radius: 8px; padding: 2px 8px; border: 1px solid transparent; }
+        .input-box-wrapper:focus-within { background: #fff; border-color: #1a73e8; box-shadow: 0 1px 2px rgba(60,64,67,0.3); }
+        .input-icon { color: #5f6368; font-size: 14px; margin-right: 8px; user-select: none; }
+        input { width: 100%; padding: 10px 0; border: none; background: transparent; font-size: 14px; color: #3c4043; outline: none; }
+        .clear-btn { color: #70757a; cursor: pointer; font-size: 16px; font-weight: bold; padding: 0 5px; user-select: none; }
+        .geo-btn { display: none; padding: 10px; font-size: 12px; font-weight: 500; cursor: pointer; border-radius: 8px; border: 1px solid #dadce0; background: #fff; color: #1a73e8; text-align: center; margin-top: 2px; box-shadow: 0 1px 2px rgba(60,64,67,0.1); }
+        .geo-btn:hover { background: #f8f9fa; }
+        .btn-route { background: #1a73e8; color: #fff; border: none; padding: 12px; border-radius: 24px; font-size: 14px; font-weight: 500; cursor: pointer; text-align: center; box-shadow: 0 1px 2px rgba(60,64,67,0.3); transition: background 0.15s; }
+        .btn-route:hover { background: #1557b0; }
+        .btn-back { background: none; border: none; color: #1a73e8; font-size: 13px; font-weight: 500; cursor: pointer; padding: 0; display: flex; align-items: center; gap: 4px; text-align: left; width: fit-content; }
+        .btn-back:hover { text-decoration: underline; }
+        .autocomplete-menu { position: absolute; top: 46px; left: 0; right: 0; background: white; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 2000; box-shadow: 0 4px 12px rgba(60,64,67,0.2); border: 1px solid #dadce0; display: none; }
+        .autocomplete-item { padding: 10px 14px; font-size: 13px; cursor: pointer; color: #3c4043; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .autocomplete-item:hover { background: #f1f3f4; }
+        .summary-card { background: #e8f0fe; border-radius: 8px; padding: 12px; color: #1967d2; font-size: 14px; margin-bottom: 8px; }
+        .direction-item { font-size: 13px; padding: 12px 0; border-bottom: 1px solid #e8eaed; color: #3c4043; display: flex; gap: 8px; }
         .leaflet-routing-container { display: none !important; }
     </style>
 </head>
 <body>
 
     <div class="sidebar" id="inputPanel">
-        <h2>Route Finder</h2>
-        <div class="input-group">
-            <label>Starting Point</label>
-            <input type="text" id="pointA" placeholder="Enter start location..." autocomplete="off">
+        <h2>📍 Google Maps Router</h2>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px; position: relative;">
+            <div class="input-box-wrapper">
+                <span class="input-icon">⚪</span>
+                <input type="text" id="pointA" placeholder="Choose starting point..." autocomplete="off">
+                <span class="clear-btn" id="clearA" style="display:none;">&times;</span>
+            </div>
             <div class="autocomplete-menu" id="menuA"></div>
-            <div class="geo-btn" id="locateA">🧭 Use My Current Location</div>
+            <div class="geo-btn" id="locateA">🧭 Use current location</div>
         </div>
-        <div class="input-group">
-            <label>Destination</label>
-            <input type="text" id="pointB" placeholder="Where to?" autocomplete="off">
+
+        <div style="display: flex; flex-direction: column; gap: 10px; position: relative;">
+            <div class="input-box-wrapper">
+                <span class="input-icon">🔴</span>
+                <input type="text" id="pointB" placeholder="Choose destination..." autocomplete="off">
+                <span class="clear-btn" id="clearB" style="display:none;">&times;</span>
+            </div>
             <div class="autocomplete-menu" id="menuB"></div>
         </div>
+
         <button class="btn-route" id="getDirections">Get Directions</button>
     </div>
 
     <div class="sidebar" id="directionsPanel" style="display: none;">
-        <button class="btn-back" id="btnBack">⬅ Edit Route</button>
-        <h2 id="routeTitle">Directions</h2>
+        <button class="btn-back" id="btnBack">← Back to edit</button>
+        <h2 style="font-size: 18px; margin-top: 4px;">Route Details</h2>
         <div id="stepsContainer"></div>
     </div>
 
@@ -57,35 +72,40 @@
     <script>
         const map = L.map('map', { zoomControl: false }).setView([39.8283, -98.5795], 4);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.control.zoom({ position: 'bottomright' }).addTo(map); // Classic corner placement
 
         let routingControl = null;
-        let activeInput = null;
 
         const inputA = document.getElementById('pointA');
         const inputB = document.getElementById('pointB');
         const btnLocateA = document.getElementById('locateA');
         const menuA = document.getElementById('menuA');
         const menuB = document.getElementById('menuB');
+        const clearA = document.getElementById('clearA');
+        const clearB = document.getElementById('clearB');
         
         const inputPanel = document.getElementById('inputPanel');
         const directionsPanel = document.getElementById('directionsPanel');
         const stepsContainer = document.getElementById('stepsContainer');
 
-        // Toggle starting GPS button on focus
-        inputA.addEventListener('focus', () => { btnLocateA.style.display = 'block'; activeInput = inputA; });
+        // Input Focus Configurations
+        inputA.addEventListener('focus', () => btnLocateA.style.display = 'block');
         inputA.addEventListener('blur', () => setTimeout(() => btnLocateA.style.display = 'none', 250));
-        inputB.addEventListener('focus', () => { activeInput = inputB; });
 
-        // Tooltip Info Popup logic for Tolls
-        function setupMarkerTooltip(marker, type) {
-            if(type === 'start') {
-                marker.bindPopup("<b>Starting Point</b><br>⚠️ Check local highways for express toll lanes.").openPopup();
-            } else {
-                marker.bindPopup("<b>Destination Point</b>").openPopup();
-            }
-        }
+        // Display Clear (X) Buttons dynamically
+        const toggleClearBtn = (input, btn) => { btn.style.display = input.value ? 'block' : 'none'; };
+        inputA.addEventListener('input', () => toggleClearBtn(inputA, clearA));
+        inputB.addEventListener('input', () => toggleClearBtn(inputB, clearB));
+        
+        clearA.addEventListener('click', () => { inputA.value = ''; clearA.style.display = 'none'; delete inputA.dataset.lat; delete inputA.dataset.lng; });
+        clearB.addEventListener('click', () => { inputB.value = ''; clearB.style.display = 'none'; delete inputB.dataset.lat; delete inputB.dataset.lng; });
 
-        // Address lookups
+        // Submit via Keyboard Enter Key
+        const triggerEnterSubmit = (e) => { if (e.key === 'Enter') document.getElementById('getDirections').click(); };
+        inputA.addEventListener('keydown', triggerEnterSubmit);
+        inputB.addEventListener('keydown', triggerEnterSubmit);
+
+        // Reverse Lat/Lng lookup
         async function fetchAddress(lat, lon) {
             try {
                 let res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
@@ -94,7 +114,7 @@
             } catch { return `${lat.toFixed(4)}, ${lon.toFixed(4)}`; }
         }
 
-        // Live Autocomplete functionality
+        // Live Address Suggestion Dropdown Logic
         async function handleAutocomplete(inputElement, menuElement) {
             let query = inputElement.value;
             if (query.length < 3) { menuElement.style.display = 'none'; return; }
@@ -114,6 +134,8 @@
                         inputElement.dataset.lat = item.lat;
                         inputElement.dataset.lng = item.lon;
                         menuElement.style.display = 'none';
+                        if (inputElement === inputA) toggleClearBtn(inputA, clearA);
+                        if (inputElement === inputB) toggleClearBtn(inputB, clearB);
                     });
                     menuElement.appendChild(div);
                 });
@@ -121,24 +143,22 @@
             } catch (err) { console.log(err); }
         }
 
-        // Attach input listeners for live search menus
         let debounceTimer;
         inputA.addEventListener('input', () => {
             delete inputA.dataset.lat; delete inputA.dataset.lng;
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => handleAutocomplete(inputA, menuA), 300);
+            debounceTimer = setTimeout(() => handleAutocomplete(inputA, menuA), 250);
         });
         inputB.addEventListener('input', () => {
             delete inputB.dataset.lat; delete inputB.dataset.lng;
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => handleAutocomplete(inputB, menuB), 300);
+            debounceTimer = setTimeout(() => handleAutocomplete(inputB, menuB), 250);
         });
 
-        // Hide menus on blur
         inputA.addEventListener('blur', () => setTimeout(() => menuA.style.display = 'none', 200));
         inputB.addEventListener('blur', () => setTimeout(() => menuB.style.display = 'none', 200));
 
-        // Set field to current GPS coordinates
+        // Use GPS click action
         function useGPS(inputField) {
             if (!navigator.geolocation) return alert("GPS not supported");
             navigator.geolocation.getCurrentPosition(async (position) => {
@@ -147,11 +167,12 @@
                 inputField.dataset.lat = lat;
                 inputField.dataset.lng = lon;
                 inputField.value = await fetchAddress(lat, lon);
+                toggleClearBtn(inputField, inputField === inputA ? clearA : clearB);
                 map.setView([lat, lon], 14);
             });
         }
 
-        // Instantly center map on user on load
+        // Center map on startup
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((position) => {
                 map.setView([position.coords.latitude, position.coords.longitude], 13);
@@ -160,7 +181,6 @@
 
         btnLocateA.addEventListener('mousedown', (e) => { e.preventDefault(); useGPS(inputA); });
 
-        // Forward geocoding fallback text lookup
         async function fetchCoords(address) {
             let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
             let data = await res.json();
@@ -168,9 +188,13 @@
             throw new Error("Location not found: " + address);
         }
 
-        // Build route path safely and swap panels
+        // Build Route Path and Apply QoL Auto-zooms
         document.getElementById('getDirections').addEventListener('click', async () => {
-            if (!inputA.value || !inputB.value) return alert("Fill in both locations!");
+            if (!inputA.value || !inputB.value) return alert("Please enter both a start point and destination!");
+            
+            const actionBtn = document.getElementById('getDirections');
+            actionBtn.innerText = "Calculating Route...";
+            actionBtn.style.background = "#5f6368";
 
             try {
                 let coordA = (inputA.dataset.lat) ? L.latLng(inputA.dataset.lat, inputA.dataset.lng) : await fetchCoords(inputA.value);
@@ -180,41 +204,51 @@
 
                 routingControl = L.Routing.control({
                     waypoints: [coordA, coordB],
-                    lineOptions: { styles: [{ color: '#1c7ed6', opacity: 0.8, weight: 6 }] },
+                    lineOptions: { styles: [{ color: '#1a73e8', opacity: 0.8, weight: 6 }] },
                     addWaypoints: false,
                     createMarker: (i, wp) => {
                         let m = L.marker(wp.latLng, { draggable: true });
-                        setupMarkerTooltip(m, i === 0 ? 'start' : 'end');
+                        m.bindPopup(`<b>${i === 0 ? 'Starting Point' : 'Destination'}</b>`).openPopup();
                         return m;
                     }
                 }).addTo(map);
 
-                // Wait for route computational response to build steps info panel
                 routingControl.on('routesfound', function(e) {
                     let routes = e.routes;
                     let summary = routes[0].summary;
-                    stepsContainer.innerHTML = `<div style="font-weight:bold; margin-bottom:10px; color:#1c7ed6;">Total Distance: ${(summary.totalDistance / 1609.34).toFixed(1)} miles<br>Est. Time: ${Math.round(summary.totalTime / 60)} mins</div>`;
                     
-                    // Toll info injection notice
-                    stepsContainer.innerHTML += `<button class="btn-route" style="background:#f08c00; font-size:11px; padding:6px; margin-bottom:12px; width:100%;" onclick="alert('Notice: This route passes through standard local area utility systems/tolls. Always ensure your electronic transponder pass is active!')">⚠️ View Toll Warnings</button>`;
+                    // QoL Feature: Auto zoom map bounds to comfortably fit full path route view
+                    const routeBounds = L.latLngBounds([coordA, coordB]);
+                    map.fitBounds(routeBounds, { padding: [50, 50] });
+
+                    stepsContainer.innerHTML = `
+                        <div class="summary-card">
+                            <b>⚡ Fastest Route Found</b><br>
+                            Distance: ${(summary.totalDistance / 1609.34).toFixed(1)} miles<br>
+                            Estimated Time: ${Math.round(summary.totalTime / 60)} mins
+                        </div>
+                        <button class="btn-route" style="background:#f9ab00; font-size:11px; padding:6px 12px; margin-bottom:12px; width:100%; border-radius:6px;" onclick="alert('Notice: This route passes through standard utility highway systems/tolls. Ensure your electronic pass is active.')">⚠️ View Route Warnings & Tolls</button>
+                    `;
                     
-                    let instructions = routes[0].instructions;
-                    instructions.forEach((step, index) => {
+                    routes[0].instructions.forEach((step, index) => {
                         let stepDiv = document.createElement('div');
                         stepDiv.className = 'direction-item';
-                        stepDiv.innerHTML = `<b>${index + 1}.</b> ${step.text} <span style="color:#666; font-size:11px;">(${(step.distance / 1609.34).toFixed(2)} mi)</span>`;
+                        stepDiv.innerHTML = `<div><b>${index + 1}.</b></div> <div>${step.text} <span style="color:#70757a; font-size:11px; display:block;">(${(step.distance / 1609.34).toFixed(2)} mi)</span></div>`;
                         stepsContainer.appendChild(stepDiv);
                     });
 
-                    // Panels swap UI visual flip
                     inputPanel.style.display = 'none';
                     directionsPanel.style.display = 'flex';
                 });
 
-            } catch (err) { alert(err.message); }
+            } catch (err) { 
+                alert(err.message); 
+            } finally {
+                actionBtn.innerText = "Get Directions";
+                actionBtn.style.background = "#1a73e8";
+            }
         });
 
-        // Go Back Button
         document.getElementById('btnBack').addEventListener('click', () => {
             directionsPanel.style.display = 'none';
             inputPanel.style.display = 'flex';
