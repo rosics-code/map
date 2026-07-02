@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Route Map UI</title>
+<title>Map + POI + Route</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
@@ -10,91 +10,22 @@
 body{margin:0;overflow:hidden;font-family:system-ui;}
 #map{position:absolute;inset:0;}
 
-/* 📦 SIDEBAR */
-#panel{
-position:absolute;
-top:12px;
-left:12px;
-width:360px;
-height:calc(100vh - 24px);
+#panel{position:absolute;top:12px;left:12px;width:360px;height:calc(100vh - 24px);background:rgba(15,23,42,.92);backdrop-filter:blur(12px);border:1px solid #1f2937;border-radius:14px;padding:12px;color:#fff;z-index:1000;display:flex;flex-direction:column;gap:10px;}
 
-background:rgba(15,23,42,.92);
-backdrop-filter:blur(12px);
+#tabs{display:flex;gap:8px;}
+.tab{flex:1;padding:8px;background:rgba(255,255,255,.06);border:none;color:#fff;border-radius:8px;cursor:pointer;}
+.tab.active{background:#2563eb;}
 
-border:1px solid #1f2937;
-border-radius:14px;
+.section{display:none;flex-direction:column;gap:8px;}
+.section.active{display:flex;}
 
-padding:12px;
-color:#fff;
-z-index:1000;
+input{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;}
 
-display:flex;
-flex-direction:column;
-gap:10px;
-}
+button{padding:8px;border:none;border-radius:8px;cursor:pointer;color:#fff;}
+.btn{background:#22c55e;}
+.btn2{background:#ef4444;}
 
-/* tabs */
-#tabs{
-display:flex;
-gap:8px;
-}
-
-.tab{
-flex:1;
-padding:8px;
-background:rgba(255,255,255,.06);
-border:none;
-color:white;
-border-radius:8px;
-cursor:pointer;
-}
-
-.tab.active{
-background:#2563eb;
-}
-
-/* sections */
-.section{
-display:none;
-flex-direction:column;
-gap:8px;
-}
-
-.section.active{
-display:flex;
-}
-
-/* inputs */
-input{
-padding:8px;
-border-radius:8px;
-border:1px solid rgba(255,255,255,.1);
-background:rgba(255,255,255,.05);
-color:white;
-outline:none;
-}
-
-button.action{
-padding:8px;
-border-radius:8px;
-border:none;
-background:#22c55e;
-color:white;
-cursor:pointer;
-}
-
-button.action:hover{
-opacity:.9;
-}
-
-/* zoom */
-.leaflet-control-zoom{
-position:absolute!important;
-bottom:20px!important;
-right:20px!important;
-top:auto!important;
-left:auto!important;
-}
+.leaflet-control-zoom{position:absolute!important;bottom:20px!important;right:20px!important;top:auto!important;left:auto!important;}
 </style>
 </head>
 
@@ -104,24 +35,27 @@ left:auto!important;
 
 <!-- 🧭 TABS -->
 <div id="tabs">
-<button class="tab active" onclick="switchTab('place')">Place</button>
-<button class="tab" onclick="switchTab('route')">Route</button>
+<button class="tab active" onclick="switchTab('place',event)">Place</button>
+<button class="tab" onclick="switchTab('route',event)">Route</button>
 </div>
 
-<!-- 📍 PLACE VIEW -->
+<!-- 📍 PLACE -->
 <div id="place" class="section active">
-<div id="placeName">Click a location</div>
-<div id="placeInfo">No selection yet</div>
+<div id="placeName">Click map or POI</div>
+<div id="placeInfo">Nothing selected</div>
 </div>
 
-<!-- 🛣️ ROUTE VIEW -->
+<!-- 🛣️ ROUTE -->
 <div id="route" class="section">
 
-<input id="start" placeholder="Start lat,lng">
-<input id="end" placeholder="End lat,lng">
+<input id="start" placeholder="Point A (click map or 'use me')">
+<button class="btn" onclick="useMyLocation('start')">Use My Location</button>
 
-<button class="action" onclick="drawRoute()">Show Route</button>
-<button class="action" style="background:#ef4444" onclick="clearRoute()">Clear</button>
+<input id="end" placeholder="Point B (click map or 'use me')">
+<button class="btn" onclick="useMyLocation('end')">Use My Location</button>
+
+<button class="btn" onclick="drawRoute()">Draw Route</button>
+<button class="btn2" onclick="clearRoute()">Clear</button>
 
 </div>
 
@@ -134,31 +68,33 @@ left:auto!important;
 <script>
 const map=L.map('map').setView([26.5629,-81.9495],12);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-attribution:'&copy; OpenStreetMap'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OSM'}).addTo(map);
 
-// 🧠 state
+// 🧠 STATE
 let selectedMarker=null;
 let routeLine=null;
+let currentMode="place";
 
 // UI
 const placeName=document.getElementById("placeName");
 const placeInfo=document.getElementById("placeInfo");
 
-// 🧭 tabs
-function switchTab(tab){
-
+// 📦 tab switch
+function switchTab(tab,e){
 document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-event.target.classList.add("active");
+e.target.classList.add("active");
 
 document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
 document.getElementById(tab).classList.add("active");
+
+currentMode=tab;
 }
 
-// 📍 place click
+// 📍 PLACE + POI CLICK HANDLER
 map.on("click",(e)=>{
 const {lat,lng}=e.latlng;
+
+if(currentMode==="route") return;
 
 if(selectedMarker) map.removeLayer(selectedMarker);
 
@@ -168,7 +104,80 @@ placeName.textContent="Selected Location";
 placeInfo.textContent=`${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 });
 
-// 🛣️ ROUTE SYSTEM
+// 🧭 POIs (BACK, UNCHANGED IDEA, CLEAN)
+let cluster=L.layerGroup();
+cluster.addTo(map);
+
+async function loadPOIs(){
+
+const b=map.getBounds();
+
+const query=`
+[out:json];
+(
+node["amenity"="fuel"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+node["shop"~"convenience|supermarket|mall"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+node["amenity"~"restaurant|fast_food|cafe"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+);
+out;
+`;
+
+const url="https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query);
+
+try{
+const res=await fetch(url);
+const data=await res.json();
+
+cluster.clearLayers();
+
+data.elements.forEach(p=>{
+
+const m=L.marker([p.lat,p.lon]).addTo(cluster);
+
+m.on("click",()=>{
+
+if(selectedMarker) map.removeLayer(selectedMarker);
+
+selectedMarker=m;
+
+placeName.textContent=p.tags.name||"Unknown Place";
+placeInfo.textContent=(p.tags.amenity||p.tags.shop||"POI")+" • "+p.lat.toFixed(5)+","+p.lon.toFixed(5);
+});
+
+});
+
+}catch(e){console.log(e);}
+}
+
+map.on("moveend",loadPOIs);
+loadPOIs();
+
+// 🛣️ ROUTE INPUT FROM CLICK
+function setRoutePoint(id,latlng){
+document.getElementById(id).value=`${latlng.lat},${latlng.lng}`;
+}
+
+// click assigns route points in route mode
+map.on("click",(e)=>{
+if(currentMode!=="route") return;
+
+if(!document.getElementById("start").value){
+setRoutePoint("start",e.latlng);
+}else{
+setRoutePoint("end",e.latlng);
+}
+});
+
+// 📍 my location
+function useMyLocation(id){
+navigator.geolocation.getCurrentPosition(pos=>{
+const lat=pos.coords.latitude;
+const lng=pos.coords.longitude;
+document.getElementById(id).value=`${lat},${lng}`;
+});
+}
+
+// 🛣️ draw route
 function drawRoute(){
 
 const a=document.getElementById("start").value.split(",");
@@ -176,22 +185,22 @@ const b=document.getElementById("end").value.split(",");
 
 if(a.length<2||b.length<2) return;
 
-const start=[parseFloat(a[0]),parseFloat(a[1])];
-const end=[parseFloat(b[0]),parseFloat(b[1])];
+const s=[parseFloat(a[0]),parseFloat(a[1])];
+const e=[parseFloat(b[0]),parseFloat(b[1])];
 
 if(routeLine) map.removeLayer(routeLine);
 
-routeLine=L.polyline([start,end],{
-color:"#3b82f6",
-weight:4
-}).addTo(map);
+routeLine=L.polyline([s,e],{color:"#3b82f6",weight:4}).addTo(map);
 
 map.fitBounds(routeLine.getBounds());
 }
 
+// 🧹 clear route
 function clearRoute(){
 if(routeLine) map.removeLayer(routeLine);
 routeLine=null;
+document.getElementById("start").value="";
+document.getElementById("end").value="";
 }
 </script>
 
