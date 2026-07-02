@@ -18,9 +18,13 @@
         .input-group { position: relative; display: flex; flex-direction: column; gap: 5px; }
         label { font-size: 12px; font-weight: 600; color: #6c757d; text-transform: uppercase; }
         .input-wrapper { position: relative; display: flex; align-items: center; }
-        input { width: 100%; padding: 12px 75px 12px 12px; border: 1px solid #cccccc; border-radius: 8px; font-size: 14px; background-color: #ffffff; color: #212529; }
+        .block-wrapper { position: relative; display: flex; flex-direction: column; gap: 8px; width: 100%; }
+        input { width: 100%; padding: 12px 12px 12px 12px; border: 1px solid #cccccc; border-radius: 8px; font-size: 14px; background-color: #ffffff; color: #212529; }
+        #pointB { padding-right: 75px; }
         input:focus { outline: none; border-color: #1c7ed6; }
-        .geo-btn { position: absolute; right: 8px; background: #e9ecef; border: none; border-radius: 6px; padding: 6px 10px; font-size: 11px; font-weight: 600; color: #495057; cursor: pointer; display: none; z-index: 5; }
+        .geo-btn { background: #e9ecef; border: none; border-radius: 6px; padding: 6px 10px; font-size: 11px; font-weight: 600; color: #495057; cursor: pointer; display: none; z-index: 5; text-align: center; }
+        #locateA { width: 100%; padding: 10px; background: #e9ecef; border: 1px dashed #1c7ed6; color: #1c7ed6; }
+        #locateB { position: absolute; right: 8px; }
         .geo-btn:hover { background: #dee2e6; color: #1c7ed6; }
         .btn-route { background-color: #1c7ed6; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; text-align: center; }
         .btn-route:hover { background-color: #1a6fa8; }
@@ -37,9 +41,9 @@
 
         <div class="input-group">
             <label for="pointA">Starting Point</label>
-            <div class="input-wrapper">
+            <div class="block-wrapper">
                 <input type="text" id="pointA" placeholder="Enter street, city, or zip...">
-                <button class="geo-btn" id="locateA" type="button">Use GPS</button>
+                <button class="geo-btn" id="locateA" type="button">🧭 Use My Current Location</button>
             </div>
         </div>
 
@@ -61,7 +65,7 @@
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
     <script>
-        // Initialize Map
+        // Initialize Map globally centered on USA first as fallback
         const map = L.map('map', { zoomControl: false }).setView([39.8283, -98.5795], 4);
 
         // Standard Clean Light Map Tiles
@@ -73,12 +77,14 @@
 
         const geocoder = L.Control.Geocoder.nominatim();
         let routingControl = null;
+        let startMarker = null;
 
         const inputA = document.getElementById('pointA');
         const inputB = document.getElementById('pointB');
         const btnLocateA = document.getElementById('locateA');
         const btnLocateB = document.getElementById('locateB');
 
+        // Toggle buttons on focus/blur
         const setupFocusEvents = (inputElement, buttonElement) => {
             inputElement.addEventListener('focus', () => buttonElement.style.display = 'block');
             inputElement.addEventListener('blur', () => setTimeout(() => buttonElement.style.display = 'none', 200));
@@ -86,6 +92,35 @@
 
         setupFocusEvents(inputA, btnLocateA);
         setupFocusEvents(inputB, btnLocateB);
+
+        // Automatically locate user on page load
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    
+                    // Center map on user
+                    map.setView([lat, lon], 13);
+                    
+                    // Drop a starting marker
+                    if (startMarker) map.removeLayer(startMarker);
+                    startMarker = L.marker([lat, lon]).addTo(map).bindPopup("You are here").openPopup();
+
+                    // Pre-fill input fields reverse coordinates
+                    geocoder.reverse({lat: lat, lng: lon}, 18, (results) => {
+                        if (results && results.length > 0) {
+                            inputA.value = results[0].name;
+                        } else {
+                            inputA.value = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+                        }
+                        inputA.dataset.lat = lat;
+                        inputA.dataset.lng = lon;
+                    });
+                },
+                () => { console.log("Location access denied by user on load."); }
+            );
+        }
 
         const setGPSLocation = (inputField) => {
             if (!navigator.geolocation) {
@@ -140,9 +175,9 @@
                 const coordA = await resolveLocation(inputA);
                 const coordB = await resolveLocation(inputB);
 
-                if (routingControl) {
-                    map.removeControl(routingControl);
-                }
+                // Clean initial marker or previous routes
+                if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+                if (routingControl) { map.removeControl(routingControl); }
 
                 routingControl = L.Routing.control({
                     waypoints: [coordA, coordB],
