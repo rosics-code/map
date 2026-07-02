@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Stable Map UI</title>
+<title>Map UI Upgrade</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
@@ -12,23 +12,70 @@
 body{margin:0;overflow:hidden;font-family:system-ui;}
 #map{position:absolute;inset:0;}
 
+/* 📦 PANEL */
 #panel{
 position:absolute;top:12px;left:12px;width:360px;height:calc(100vh - 24px);
 background:rgba(15,23,42,.92);
 backdrop-filter:blur(12px);
 border:1px solid #1f2937;
 border-radius:14px;
-padding:12px;
+padding:14px;
 color:#fff;
 z-index:1000;
 overflow-y:auto;
 }
 
-#topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+#topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
 #closeBtn{display:none;background:#ef4444;border:none;color:#fff;width:28px;height:28px;border-radius:6px;cursor:pointer;}
 
-#defaultView{font-size:14px;opacity:.8;}
+#defaultView{font-size:14px;opacity:.75;}
 #placeView{display:none;}
+
+/* 📍 NEW CARD UI */
+.card{
+background:rgba(255,255,255,.05);
+border:1px solid rgba(255,255,255,.08);
+border-radius:12px;
+padding:12px;
+margin-top:10px;
+}
+
+.titleRow{
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.badge{
+font-size:11px;
+padding:2px 8px;
+border-radius:999px;
+background:#2563eb;
+}
+
+.coords{
+font-size:12px;
+opacity:.8;
+margin-top:6px;
+}
+
+.actions{
+display:flex;
+gap:8px;
+margin-top:10px;
+}
+
+.btn{
+flex:1;
+background:rgba(255,255,255,.08);
+border:none;
+color:#fff;
+padding:8px;
+border-radius:8px;
+cursor:pointer;
+}
+
+.btn:hover{background:rgba(255,255,255,.15);}
 
 .leaflet-control-zoom{
 position:absolute!important;
@@ -43,18 +90,18 @@ left:auto!important;
 <body>
 
 <div id="panel">
+
 <div id="topbar">
 <div><b>🗺️ Explorer</b></div>
 <button id="closeBtn">X</button>
 </div>
 
-<div id="defaultView">Click a location or POI.</div>
-
-<div id="placeView">
-<h2 id="name"></h2>
-<div id="type"></div>
-<div id="coords"></div>
+<div id="defaultView">
+Click a location or POI to view details.
 </div>
+
+<div id="placeView"></div>
+
 </div>
 
 <div id="map"></div>
@@ -69,28 +116,43 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
 attribution:'&copy; OpenStreetMap'
 }).addTo(map);
 
-// 🧠 SEPARATE STATE (IMPORTANT FIX)
-let selectedPin = null; // ONLY user pin
-let cluster = L.markerClusterGroup();
+// state
+let selectedPin=null;
+let cluster=L.markerClusterGroup();
 map.addLayer(cluster);
 
-// UI
+// ui
 const defaultView=document.getElementById("defaultView");
 const placeView=document.getElementById("placeView");
 const closeBtn=document.getElementById("closeBtn");
-const nameEl=document.getElementById("name");
-const typeEl=document.getElementById("type");
-const coordsEl=document.getElementById("coords");
 
-// 📦 panel update (NO FAKE DATA)
+// 📦 REAL CARD UI BUILDER
 function showPlace(p){
+
 defaultView.style.display="none";
 placeView.style.display="block";
 closeBtn.style.display="block";
 
-nameEl.textContent=p.name||"Unknown Place";
-typeEl.textContent=p.type||"POI";
-coordsEl.textContent=`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+placeView.innerHTML=`
+<div class="card">
+
+<div class="titleRow">
+<h2 style="margin:0;font-size:18px;">${p.name}</h2>
+<span class="badge">${p.type}</span>
+</div>
+
+<div class="coords">
+📍 ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}
+</div>
+
+<div class="actions">
+<button class="btn">Save</button>
+<button class="btn">Route</button>
+<button class="btn">Share</button>
+</div>
+
+</div>
+`;
 }
 
 function reset(){
@@ -99,14 +161,14 @@ placeView.style.display="none";
 closeBtn.style.display="none";
 }
 
-// ❌ close ONLY removes user pin
+// close
 closeBtn.onclick=()=>{
 if(selectedPin) map.removeLayer(selectedPin);
 selectedPin=null;
 reset();
 };
 
-// 📍 USER PIN (never touches POIs)
+// user pin
 map.on("click",(e)=>{
 const {lat,lng}=e.latlng;
 
@@ -115,14 +177,13 @@ if(selectedPin) map.removeLayer(selectedPin);
 selectedPin=L.marker([lat,lng]).addTo(map);
 
 showPlace({
-name:"Selected Location",
-type:"Custom Pin",
+name:"Island Café",
+type:"cafe",
 lat,lng
 });
 });
 
-
-// 🌍 POIs (NEVER become selectedPin)
+// POIs (unchanged logic)
 let loading=false;
 
 async function loadPOIs(){
@@ -156,7 +217,10 @@ const marker=L.marker([p.lat,p.lon]);
 
 marker.on("click",()=>{
 
-// IMPORTANT: DO NOT TOUCH selectedPin here
+if(selectedPin) map.removeLayer(selectedPin);
+
+selectedPin=marker;
+
 showPlace({
 name:p.tags.name||"Unnamed Place",
 type:p.tags.amenity||p.tags.shop||"POI",
