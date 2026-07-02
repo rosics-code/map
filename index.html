@@ -2,19 +2,85 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Map Panel Swap UI</title>
+<title>Smart Map UI</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <style>
-body {margin: 0;overflow: hidden;font-family: system-ui;}
-#map {position: absolute;inset: 0;}
-#panel {position: absolute;top: 12px;left: 12px;width: 340px;height: calc(100vh - 24px);background: rgba(15, 23, 42, 0.92);backdrop-filter: blur(12px);border: 1px solid #1f2937;border-radius: 14px;padding: 14px;color: white;z-index: 1000;overflow: hidden;}
-#topbar {display: flex;justify-content: space-between;align-items: center;margin-bottom: 12px;}
-#closeBtn {display: none;background: #ef4444;border: none;color: white;width: 28px;height: 28px;border-radius: 6px;cursor: pointer;}
-#defaultView {font-size: 14px;opacity: 0.85;}
-#placeView {display: none;}
-.leaflet-control-zoom {position: absolute !important;bottom: 20px !important;right: 20px !important;top: auto !important;left: auto !important;}
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: system-ui;
+}
+
+/* 🗺️ MAP */
+#map {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* 📦 FLOATING PANEL (real overlay) */
+#panel {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+
+  width: 340px;
+  height: calc(100vh - 24px);
+
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(12px);
+
+  border: 1px solid #1f2937;
+  border-radius: 14px;
+
+  padding: 14px;
+  color: white;
+
+  z-index: 1000;
+  overflow: hidden;
+}
+
+/* header */
+#topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+/* X button */
+#closeBtn {
+  display: none;
+  background: #ef4444;
+  border: none;
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* views */
+#defaultView {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+#placeView {
+  display: none;
+}
+
+/* zoom bottom-right */
+.leaflet-control-zoom {
+  position: absolute !important;
+  bottom: 20px !important;
+  right: 20px !important;
+
+  top: auto !important;
+  left: auto !important;
+}
 </style>
 </head>
 
@@ -23,15 +89,17 @@ body {margin: 0;overflow: hidden;font-family: system-ui;}
 <div id="panel">
 
   <div id="topbar">
-    <div><b>🗺️ Map</b></div>
+    <div><b>🗺️ Map Inspector</b></div>
     <button id="closeBtn">X</button>
   </div>
 
-  <div id="defaultView">Click anywhere on the map to inspect a location.</div>
+  <div id="defaultView">
+    Click anywhere on the map to inspect a location or POI.
+  </div>
 
   <div id="placeView">
-    <h2 id="placeName"></h2>
-    <div id="placeInfo"></div>
+    <h2 id="name"></h2>
+    <div id="info"></div>
   </div>
 
 </div>
@@ -44,43 +112,50 @@ body {margin: 0;overflow: hidden;font-family: system-ui;}
 const map = L.map('map').setView([26.5629, -81.9495], 12);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
+  attribution: '&copy; OpenStreetMap'
 }).addTo(map);
 
+// 🧠 STATE
 let currentMarker = null;
 
-// UI elements
+// UI refs
 const defaultView = document.getElementById("defaultView");
 const placeView = document.getElementById("placeView");
 const closeBtn = document.getElementById("closeBtn");
+const nameEl = document.getElementById("name");
+const infoEl = document.getElementById("info");
 
-const placeName = document.getElementById("placeName");
-const placeInfo = document.getElementById("placeInfo");
-
-// 🧠 switch to place mode (FULL REPLACE)
+// 📦 PANEL SWITCH
 function showPlace(data) {
   defaultView.style.display = "none";
   placeView.style.display = "block";
   closeBtn.style.display = "block";
 
-  placeName.textContent = data.name;
-  placeInfo.innerHTML = `
-    <p>${data.type}</p>
-    <p>Lat: ${data.lat.toFixed(5)}</p>
-    <p>Lng: ${data.lng.toFixed(5)}</p>
+  nameEl.textContent = data.name;
+
+  infoEl.innerHTML = `
+    <div><b>Type:</b> ${data.type}</div>
+    <div><b>Lat:</b> ${data.lat.toFixed(5)}</div>
+    <div><b>Lng:</b> ${data.lng.toFixed(5)}</div>
   `;
 }
 
-// 🏠 back to default mode
 function resetPanel() {
   defaultView.style.display = "block";
   placeView.style.display = "none";
   closeBtn.style.display = "none";
 }
 
-// ❌ X button
-closeBtn.onclick = resetPanel;
+// ❌ CLOSE BUTTON = remove pin
+closeBtn.onclick = () => {
+  if (currentMarker) {
+    map.removeLayer(currentMarker);
+    currentMarker = null;
+  }
+  resetPanel();
+};
 
+// 📍 click = single marker system
 map.on("click", (e) => {
   const { lat, lng } = e.latlng;
 
@@ -91,12 +166,60 @@ map.on("click", (e) => {
   currentMarker = L.marker([lat, lng]).addTo(map);
 
   showPlace({
-    name: "Selected Location",
-    type: "Custom Pin",
+    name: "Custom Location",
+    type: "User Pin",
     lat,
     lng
   });
 });
+
+
+// 🌍 REAL POIs (Overpass API)
+async function loadPOIs() {
+  const query = `
+    [out:json];
+    (
+      node["amenity"="fuel"](26.45,-82.1,26.75,-81.7);
+      node["shop"="convenience"](26.45,-82.1,26.75,-81.7);
+    );
+    out;
+  `;
+
+  const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+
+    data.elements.forEach(el => {
+      const marker = L.marker([el.lat, el.lon]).addTo(map);
+
+      const name = el.tags.name || "Unnamed POI";
+      const type = el.tags.amenity || el.tags.shop || "POI";
+
+      marker.on("click", () => {
+
+        if (currentMarker) {
+          map.removeLayer(currentMarker);
+        }
+
+        currentMarker = marker;
+
+        showPlace({
+          name,
+          type,
+          lat: el.lat,
+          lng: el.lon
+        });
+      });
+    });
+
+  } catch (err) {
+    console.log("POI load failed:", err);
+  }
+}
+
+loadPOIs();
 </script>
 
 </body>
