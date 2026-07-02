@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Smart Map Explorer</title>
+<title>Stable Map UI</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
@@ -48,11 +48,12 @@ left:auto!important;
 <button id="closeBtn">X</button>
 </div>
 
-<div id="defaultView">Move or click the map to explore places.</div>
+<div id="defaultView">Click a location or POI.</div>
 
 <div id="placeView">
 <h2 id="name"></h2>
-<div id="meta"></div>
+<div id="type"></div>
+<div id="coords"></div>
 </div>
 </div>
 
@@ -62,33 +63,34 @@ left:auto!important;
 <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
-const map = L.map('map').setView([26.5629,-81.9495],12);
+const map=L.map('map').setView([26.5629,-81.9495],12);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
 attribution:'&copy; OpenStreetMap'
 }).addTo(map);
 
-// 🧠 state
-let selectedMarker=null;
+// 🧠 SEPARATE STATE (IMPORTANT FIX)
+let selectedPin = null; // ONLY user pin
+let cluster = L.markerClusterGroup();
+map.addLayer(cluster);
 
-const panel=document.getElementById("panel");
+// UI
 const defaultView=document.getElementById("defaultView");
 const placeView=document.getElementById("placeView");
 const closeBtn=document.getElementById("closeBtn");
 const nameEl=document.getElementById("name");
-const metaEl=document.getElementById("meta");
+const typeEl=document.getElementById("type");
+const coordsEl=document.getElementById("coords");
 
-// 📦 UI
+// 📦 panel update (NO FAKE DATA)
 function showPlace(p){
 defaultView.style.display="none";
 placeView.style.display="block";
 closeBtn.style.display="block";
 
-nameEl.textContent=p.name;
-
-metaEl.innerHTML=
-`<div>${p.type}</div>
-<div>${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</div>`;
+nameEl.textContent=p.name||"Unknown Place";
+typeEl.textContent=p.type||"POI";
+coordsEl.textContent=`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
 }
 
 function reset(){
@@ -97,20 +99,20 @@ placeView.style.display="none";
 closeBtn.style.display="none";
 }
 
-// ❌ close
+// ❌ close ONLY removes user pin
 closeBtn.onclick=()=>{
-if(selectedMarker) map.removeLayer(selectedMarker);
-selectedMarker=null;
+if(selectedPin) map.removeLayer(selectedPin);
+selectedPin=null;
 reset();
 };
 
-// 📍 single selected pin
+// 📍 USER PIN (never touches POIs)
 map.on("click",(e)=>{
 const {lat,lng}=e.latlng;
 
-if(selectedMarker) map.removeLayer(selectedMarker);
+if(selectedPin) map.removeLayer(selectedPin);
 
-selectedMarker=L.marker([lat,lng]).addTo(map);
+selectedPin=L.marker([lat,lng]).addTo(map);
 
 showPlace({
 name:"Selected Location",
@@ -119,10 +121,8 @@ lat,lng
 });
 });
 
-// 🌍 POI system (EXPANDED TYPES)
-let cluster=L.markerClusterGroup();
-map.addLayer(cluster);
 
+// 🌍 POIs (NEVER become selectedPin)
 let loading=false;
 
 async function loadPOIs(){
@@ -138,8 +138,6 @@ const query=`
 node["amenity"="fuel"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
 node["shop"~"convenience|supermarket|mall"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
 node["amenity"~"restaurant|fast_food|cafe"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
-node["amenity"~"bank|pharmacy"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
-node["amenity"="parking"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
 );
 out;
 `;
@@ -153,14 +151,12 @@ const data=await res.json();
 cluster.clearLayers();
 
 data.elements.forEach(p=>{
+
 const marker=L.marker([p.lat,p.lon]);
 
 marker.on("click",()=>{
 
-if(selectedMarker) map.removeLayer(selectedMarker);
-
-selectedMarker=marker.addTo(map);
-
+// IMPORTANT: DO NOT TOUCH selectedPin here
 showPlace({
 name:p.tags.name||"Unnamed Place",
 type:p.tags.amenity||p.tags.shop||"POI",
@@ -170,10 +166,11 @@ lng:p.lon
 });
 
 cluster.addLayer(marker);
+
 });
 
 }catch(e){
-console.log("POI error",e);
+console.log(e);
 }
 
 loading=false;
