@@ -1,208 +1,167 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>Map + POI + Route</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Light Mode Router</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
-<style>
-body{margin:0;overflow:hidden;font-family:system-ui;}
-#map{position:absolute;inset:0;}
-
-#panel{position:absolute;top:12px;left:12px;width:360px;height:calc(100vh - 24px);background:rgba(15,23,42,.92);backdrop-filter:blur(12px);border:1px solid #1f2937;border-radius:14px;padding:12px;color:#fff;z-index:1000;display:flex;flex-direction:column;gap:10px;}
-
-#tabs{display:flex;gap:8px;}
-.tab{flex:1;padding:8px;background:rgba(255,255,255,.06);border:none;color:#fff;border-radius:8px;cursor:pointer;}
-.tab.active{background:#2563eb;}
-
-.section{display:none;flex-direction:column;gap:8px;}
-.section.active{display:flex;}
-
-input{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;}
-
-button{padding:8px;border:none;border-radius:8px;cursor:pointer;color:#fff;}
-.btn{background:#22c55e;}
-.btn2{background:#ef4444;}
-
-.leaflet-control-zoom{position:absolute!important;bottom:20px!important;right:20px!important;top:auto!important;left:auto!important;}
-</style>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background-color: #f8f9fa; }
+        #map { height: 100%; width: 100%; position: absolute; top: 0; bottom: 0; z-index: 1; }
+        .sidebar { position: absolute; top: 20px; left: 20px; width: 360px; background: #ffffff; z-index: 1000; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); border: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 15px; max-height: calc(100vh - 40px); overflow-y: auto; }
+        h2 { margin: 0; font-size: 20px; color: #1a1a1a; font-weight: 700; }
+        .input-group { position: relative; display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 12px; font-weight: 600; color: #6c757d; text-transform: uppercase; }
+        .input-wrapper { position: relative; display: flex; align-items: center; }
+        input { width: 100%; padding: 12px 75px 12px 12px; border: 1px solid #cccccc; border-radius: 8px; font-size: 14px; background-color: #ffffff; color: #212529; }
+        input:focus { outline: none; border-color: #1c7ed6; }
+        .geo-btn { position: absolute; right: 8px; background: #e9ecef; border: none; border-radius: 6px; padding: 6px 10px; font-size: 11px; font-weight: 600; color: #495057; cursor: pointer; display: none; z-index: 5; }
+        .geo-btn:hover { background: #dee2e6; color: #1c7ed6; }
+        .btn-route { background-color: #1c7ed6; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; text-align: center; }
+        .btn-route:hover { background-color: #1a6fa8; }
+        .leaflet-routing-container { display: none !important; }
+    </style>
 </head>
-
 <body>
 
-<div id="panel">
+    <div class="sidebar">
+        <div>
+            <h2>Route Finder</h2>
+            <p style="margin: 5px 0 0 0; font-size: 13px; color: #868e96;">Plan your trip seamlessly</p>
+        </div>
 
-<!-- 🧭 TABS -->
-<div id="tabs">
-<button class="tab active" onclick="switchTab('place',event)">Place</button>
-<button class="tab" onclick="switchTab('route',event)">Route</button>
-</div>
+        <div class="input-group">
+            <label for="pointA">Starting Point</label>
+            <div class="input-wrapper">
+                <input type="text" id="pointA" placeholder="Enter street, city, or zip...">
+                <button class="geo-btn" id="locateA" type="button">Use GPS</button>
+            </div>
+        </div>
 
-<!-- 📍 PLACE -->
-<div id="place" class="section active">
-<div id="placeName">Click map or POI</div>
-<div id="placeInfo">Nothing selected</div>
-</div>
+        <div class="input-group">
+            <label for="pointB">Destination</label>
+            <div class="input-wrapper">
+                <input type="text" id="pointB" placeholder="Where to?">
+                <button class="geo-btn" id="locateB" type="button">Use GPS</button>
+            </div>
+        </div>
 
-<!-- 🛣️ ROUTE -->
-<div id="route" class="section">
+        <button class="btn-route" id="getDirections">Get Directions</button>
+    </div>
 
-<input id="start" placeholder="Point A (click map or 'use me')">
-<button class="btn" onclick="useMyLocation('start')">Use My Location</button>
+    <div id="map"></div>
 
-<input id="end" placeholder="Point B (click map or 'use me')">
-<button class="btn" onclick="useMyLocation('end')">Use My Location</button>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
-<button class="btn" onclick="drawRoute()">Draw Route</button>
-<button class="btn2" onclick="clearRoute()">Clear</button>
+    <script>
+        // Initialize Map
+        const map = L.map('map', { zoomControl: false }).setView([39.8283, -98.5795], 4);
 
-</div>
+        // Standard Clean Light Map Tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-</div>
+        L.control.zoom({ position: 'topright' }).addTo(map);
 
-<div id="map"></div>
+        const geocoder = L.Control.Geocoder.nominatim();
+        let routingControl = null;
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        const inputA = document.getElementById('pointA');
+        const inputB = document.getElementById('pointB');
+        const btnLocateA = document.getElementById('locateA');
+        const btnLocateB = document.getElementById('locateB');
 
-<script>
-const map=L.map('map').setView([26.5629,-81.9495],12);
+        const setupFocusEvents = (inputElement, buttonElement) => {
+            inputElement.addEventListener('focus', () => buttonElement.style.display = 'block');
+            inputElement.addEventListener('blur', () => setTimeout(() => buttonElement.style.display = 'none', 200));
+        };
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OSM'}).addTo(map);
+        setupFocusEvents(inputA, btnLocateA);
+        setupFocusEvents(inputB, btnLocateB);
 
-// 🧠 STATE
-let selectedMarker=null;
-let routeLine=null;
-let currentMode="place";
+        const setGPSLocation = (inputField) => {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser.");
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    
+                    geocoder.reverse({lat: lat, lng: lon}, 18, (results) => {
+                        if (results && results.length > 0) {
+                            inputField.value = results[0].name;
+                        } else {
+                            inputField.value = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+                        }
+                        inputField.dataset.lat = lat;
+                        inputField.dataset.lng = lon;
+                    });
+                },
+                () => alert("Unable to retrieve your location.")
+            );
+        };
 
-// UI
-const placeName=document.getElementById("placeName");
-const placeInfo=document.getElementById("placeInfo");
+        btnLocateA.addEventListener('mousedown', () => setGPSLocation(inputA));
+        btnLocateB.addEventListener('mousedown', () => setGPSLocation(inputB));
 
-// 📦 tab switch
-function switchTab(tab,e){
-document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-e.target.classList.add("active");
+        const resolveLocation = (inputElement) => {
+            return new Promise((resolve, reject) => {
+                if (inputElement.dataset.lat && inputElement.dataset.lng) {
+                    resolve(L.latLng(inputElement.dataset.lat, inputElement.dataset.lng));
+                    return;
+                }
+                geocoder.geocode(inputElement.value, (results) => {
+                    if (results && results.length > 0) {
+                        resolve(results[0].center);
+                    } else {
+                        reject(`Location not found: ${inputElement.value}`);
+                    }
+                });
+            });
+        };
 
-document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
-document.getElementById(tab).classList.add("active");
+        document.getElementById('getDirections').addEventListener('click', async () => {
+            if (!inputA.value || !inputB.value) {
+                alert("Please fill out both starting and destination points!");
+                return;
+            }
 
-currentMode=tab;
-}
+            try {
+                const coordA = await resolveLocation(inputA);
+                const coordB = await resolveLocation(inputB);
 
-// 📍 PLACE + POI CLICK HANDLER
-map.on("click",(e)=>{
-const {lat,lng}=e.latlng;
+                if (routingControl) {
+                    map.removeControl(routingControl);
+                }
 
-if(currentMode==="route") return;
+                routingControl = L.Routing.control({
+                    waypoints: [coordA, coordB],
+                    lineOptions: {
+                        styles: [{ color: '#1c7ed6', opacity: 0.8, weight: 6 }]
+                    },
+                    createMarker: function(i, waypoint, n) {
+                        return L.marker(waypoint.latLng, { draggable: true });
+                    },
+                    addWaypoints: false
+                }).addTo(map);
 
-if(selectedMarker) map.removeLayer(selectedMarker);
+            } catch (error) {
+                alert(error);
+            }
+        });
 
-selectedMarker=L.marker([lat,lng]).addTo(map);
-
-placeName.textContent="Selected Location";
-placeInfo.textContent=`${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-});
-
-// 🧭 POIs (BACK, UNCHANGED IDEA, CLEAN)
-let cluster=L.layerGroup();
-cluster.addTo(map);
-
-async function loadPOIs(){
-
-const b=map.getBounds();
-
-const query=`
-[out:json];
-(
-node["amenity"="fuel"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
-node["shop"~"convenience|supermarket|mall"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
-node["amenity"~"restaurant|fast_food|cafe"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
-);
-out;
-`;
-
-const url="https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query);
-
-try{
-const res=await fetch(url);
-const data=await res.json();
-
-cluster.clearLayers();
-
-data.elements.forEach(p=>{
-
-const m=L.marker([p.lat,p.lon]).addTo(cluster);
-
-m.on("click",()=>{
-
-if(selectedMarker) map.removeLayer(selectedMarker);
-
-selectedMarker=m;
-
-placeName.textContent=p.tags.name||"Unknown Place";
-placeInfo.textContent=(p.tags.amenity||p.tags.shop||"POI")+" • "+p.lat.toFixed(5)+","+p.lon.toFixed(5);
-});
-
-});
-
-}catch(e){console.log(e);}
-}
-
-map.on("moveend",loadPOIs);
-loadPOIs();
-
-// 🛣️ ROUTE INPUT FROM CLICK
-function setRoutePoint(id,latlng){
-document.getElementById(id).value=`${latlng.lat},${latlng.lng}`;
-}
-
-// click assigns route points in route mode
-map.on("click",(e)=>{
-if(currentMode!=="route") return;
-
-if(!document.getElementById("start").value){
-setRoutePoint("start",e.latlng);
-}else{
-setRoutePoint("end",e.latlng);
-}
-});
-
-// 📍 my location
-function useMyLocation(id){
-navigator.geolocation.getCurrentPosition(pos=>{
-const lat=pos.coords.latitude;
-const lng=pos.coords.longitude;
-document.getElementById(id).value=`${lat},${lng}`;
-});
-}
-
-// 🛣️ draw route
-function drawRoute(){
-
-const a=document.getElementById("start").value.split(",");
-const b=document.getElementById("end").value.split(",");
-
-if(a.length<2||b.length<2) return;
-
-const s=[parseFloat(a[0]),parseFloat(a[1])];
-const e=[parseFloat(b[0]),parseFloat(b[1])];
-
-if(routeLine) map.removeLayer(routeLine);
-
-routeLine=L.polyline([s,e],{color:"#3b82f6",weight:4}).addTo(map);
-
-map.fitBounds(routeLine.getBounds());
-}
-
-// 🧹 clear route
-function clearRoute(){
-if(routeLine) map.removeLayer(routeLine);
-routeLine=null;
-document.getElementById("start").value="";
-document.getElementById("end").value="";
-}
-</script>
-
+        inputA.addEventListener('input', () => { delete inputA.dataset.lat; delete inputA.dataset.lng; });
+        inputB.addEventListener('input', () => { delete inputB.dataset.lat; delete inputB.dataset.lng; });
+    </script>
 </body>
 </html>
