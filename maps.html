@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Smart Map UI</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: system-ui;
+}
+
+/* 🗺️ map full screen */
+#map {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* 📦 LEFT floating sidebar (RESTORED) */
+#sidebar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+
+  width: 340px;
+  height: calc(100vh - 24px);
+
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(12px);
+
+  border: 1px solid #1f2937;
+  border-radius: 14px;
+
+  padding: 14px;
+  color: white;
+
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+#title {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.small {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* zoom moved bottom-right */
+.leaflet-control-zoom {
+  position: absolute !important;
+  bottom: 20px !important;
+  right: 20px !important;
+  top: auto !important;
+  left: auto !important;
+}
+</style>
+</head>
+
+<body>
+
+<div id="sidebar">
+  <div id="title">🗺️ Place Info</div>
+  <div class="small">Click map or POI to view details</div>
+  <hr style="border:1px solid #1f2937">
+
+  <div id="info">No selection</div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const map = L.map('map').setView([26.5629, -81.9495], 12);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+const info = document.getElementById("info");
+
+// 📦 update sidebar
+function setInfo(data) {
+  info.innerHTML = `
+    <b>${data.name || "Unknown"}</b><br><br>
+    <div class="small">${data.type || "Location"}</div><br>
+    <div>Lat: ${data.lat.toFixed(5)}</div>
+    <div>Lng: ${data.lng.toFixed(5)}</div>
+  `;
+}
+
+// 📍 click to create custom pin
+map.on("click", (e) => {
+  const { lat, lng } = e.latlng;
+
+  L.marker([lat, lng]).addTo(map)
+    .on("click", () => {
+      setInfo({
+        name: "Custom Pin",
+        type: "User Marker",
+        lat,
+        lng
+      });
+    });
+
+  setInfo({
+    name: "Custom Pin",
+    type: "User Marker",
+    lat,
+    lng
+  });
+});
+
+// 🌍 REAL POIs (gas stations etc) via Overpass API
+async function loadPOIs() {
+  const query = `
+    [out:json];
+    (
+      node["amenity"="fuel"](26.45,-82.1,26.75,-81.7);
+      node["shop"="convenience"](26.45,-82.1,26.75,-81.7);
+    );
+    out;
+  `;
+
+  const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  data.elements.forEach(el => {
+    const name = el.tags.name || "Unnamed place";
+
+    const marker = L.marker([el.lat, el.lon]).addTo(map);
+
+    marker.on("click", () => {
+      setInfo({
+        name,
+        type: el.tags.amenity || el.tags.shop,
+        lat: el.lat,
+        lng: el.lon
+      });
+    });
+  });
+}
+
+loadPOIs();
+</script>
+
+</body>
+</html>
