@@ -12,12 +12,11 @@
         #map { height: 100%; width: 100%; position: absolute; z-index: 1; }
         .sidebar { position: absolute; top: 15px; left: 15px; width: 330px; background: #fff; z-index: 1000; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 12px; }
         h2 { margin: 0; font-size: 18px; color: #1a1a1a; }
-        .input-group { display: flex; flex-direction: column; gap: 4px; position: relative; }
+        .input-group { display: flex; flex-direction: column; gap: 4px; }
         label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; }
         input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
-        .geo-btn { display: none; padding: 8px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 4px; border: 1px dashed #1c7ed6; background: #e9ecef; color: #1c7ed6; text-align: center; }
-        #locateB { position: absolute; right: 5px; top: 22px; padding: 5px; border: none; background: #e9ecef; }
-        .btn-route { background: #1c7ed6; color: #fff; border: none; padding: 12px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .geo-btn { display: none; padding: 8px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 4px; border: 1px dashed #1c7ed6; background: #e9ecef; color: #1c7ed6; text-align: center; margin-top: 4px; }
+        .btn-route { background: #1c7ed6; color: #fff; border: none; padding: 12px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 5px; }
         .leaflet-routing-container { display: none !important; }
     </style>
 </head>
@@ -28,12 +27,11 @@
         <div class="input-group">
             <label>Starting Point</label>
             <input type="text" id="pointA" placeholder="Enter start location...">
-            <div class="geo-btn" id="locateA">🧭 Use My Current Location</div>
+            <div class="geo-btn" id="locateA">跑 Use My Current Location</div>
         </div>
         <div class="input-group">
             <label>Destination</label>
             <input type="text" id="pointB" placeholder="Where to?">
-            <button class="geo-btn" id="locateB" type="button">GPS</button>
         </div>
         <button class="btn-route" id="getDirections">Get Directions</button>
     </div>
@@ -48,20 +46,16 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         let routingControl = null;
-        let startMarker = null;
 
         const inputA = document.getElementById('pointA');
         const inputB = document.getElementById('pointB');
         const btnLocateA = document.getElementById('locateA');
-        const btnLocateB = document.getElementById('locateB');
 
-        // Simple Toggle Focus Elements
+        // Toggle starting GPS button on focus
         inputA.addEventListener('focus', () => btnLocateA.style.display = 'block');
         inputA.addEventListener('blur', () => setTimeout(() => btnLocateA.style.display = 'none', 250));
-        inputB.addEventListener('focus', () => btnLocateB.style.display = 'block');
-        inputB.addEventListener('blur', () => setTimeout(() => btnLocateB.style.display = 'none', 250));
 
-        // Get Address String From Nominatim Geocoder API directly
+        // Address reverse geocoding lookup
         async function fetchAddress(lat, lon) {
             try {
                 let res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
@@ -72,53 +66,37 @@
             }
         }
 
-        // Get Coordinates From Text Input String
+        // Forward geocoding text to coordinates
         async function fetchCoords(address) {
             let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
             let data = await res.json();
-            if (data && data.length > 0) {
-                return L.latLng(data[0].lat, data[0].lon);
-            }
+            if (data && data.length > 0) return L.latLng(data[0].lat, data[0].lon);
             throw new Error("Location not found: " + address);
         }
 
-        // Handle GPS Location setup
+        // Set field to current GPS coordinates
         function useGPS(inputField) {
             if (!navigator.geolocation) return alert("GPS not supported");
             navigator.geolocation.getCurrentPosition(async (position) => {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
-                
                 inputField.dataset.lat = lat;
                 inputField.dataset.lng = lon;
                 inputField.value = await fetchAddress(lat, lon);
-
-                if (inputField === inputA) {
-                    map.setView([lat, lon], 14);
-                    if (startMarker) map.removeLayer(startMarker);
-                    startMarker = L.marker([lat, lon]).addTo(map).bindPopup("Your Location").openPopup();
-                }
+                map.setView([lat, lon], 14);
             });
         }
 
-        // Auto-detect location on load
+        // Instantly center map on user on load (without autofilling text)
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const lat = position.coords.latitude;
-                const lon = position.coords.longitude;
-                map.setView([lat, lon], 13);
-                startMarker = L.marker([lat, lon]).addTo(map);
-                inputA.dataset.lat = lat;
-                inputA.dataset.lng = lon;
-                inputA.value = await fetchAddress(lat, lon);
+            navigator.geolocation.getCurrentPosition((position) => {
+                map.setView([position.coords.latitude, position.coords.longitude], 13);
             });
         }
 
-        // Bind custom click capture hooks
         btnLocateA.addEventListener('mousedown', (e) => { e.preventDefault(); useGPS(inputA); });
-        btnLocateB.addEventListener('mousedown', (e) => { e.preventDefault(); useGPS(inputB); });
 
-        // Routing Logic
+        // Build route path safely
         document.getElementById('getDirections').addEventListener('click', async () => {
             if (!inputA.value || !inputB.value) return alert("Fill in both locations!");
 
@@ -126,14 +104,17 @@
                 let coordA = (inputA.dataset.lat) ? L.latLng(inputA.dataset.lat, inputA.dataset.lng) : await fetchCoords(inputA.value);
                 let coordB = (inputB.dataset.lat) ? L.latLng(inputB.dataset.lat, inputB.dataset.lng) : await fetchCoords(inputB.value);
 
-                if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
-                if (routingControl) map.removeControl(routingControl);
+                // Completely remove prior control setup to avoid inner routing crashes
+                if (routingControl) {
+                    map.removeControl(routingControl);
+                    routingControl = null;
+                }
 
                 routingControl = L.Routing.control({
                     waypoints: [coordA, coordB],
                     lineOptions: { styles: [{ color: '#1c7ed6', opacity: 0.8, weight: 6 }] },
-                    createMarker: (i, wp) => L.marker(wp.latLng, { draggable: true }),
-                    addWaypoints: false
+                    addWaypoints: false,
+                    createMarker: (i, wp) => L.marker(wp.latLng, { draggable: true })
                 }).addTo(map);
 
             } catch (err) {
