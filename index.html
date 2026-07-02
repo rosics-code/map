@@ -3,58 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Light Mode Router</title>
-    
+    <title>Simple Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-
     <style>
-        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background-color: #f8f9fa; }
-        #map { height: 100%; width: 100%; position: absolute; top: 0; bottom: 0; z-index: 1; }
-        .sidebar { position: absolute; top: 20px; left: 20px; width: 360px; background: #ffffff; z-index: 1000; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); border: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 15px; max-height: calc(100vh - 40px); overflow-y: auto; }
-        h2 { margin: 0; font-size: 20px; color: #1a1a1a; font-weight: 700; }
-        .input-group { position: relative; display: flex; flex-direction: column; gap: 5px; }
-        label { font-size: 12px; font-weight: 600; color: #6c757d; text-transform: uppercase; }
-        .input-wrapper { position: relative; display: flex; align-items: center; }
-        .block-wrapper { position: relative; display: flex; flex-direction: column; gap: 8px; width: 100%; }
-        input { width: 100%; padding: 12px 12px 12px 12px; border: 1px solid #cccccc; border-radius: 8px; font-size: 14px; background-color: #ffffff; color: #212529; }
-        #pointB { padding-right: 75px; }
-        input:focus { outline: none; border-color: #1c7ed6; }
-        .geo-btn { background: #e9ecef; border: none; border-radius: 6px; padding: 6px 10px; font-size: 11px; font-weight: 600; color: #495057; cursor: pointer; display: none; z-index: 5; text-align: center; }
-        #locateA { width: 100%; padding: 10px; background: #e9ecef; border: 1px dashed #1c7ed6; color: #1c7ed6; }
-        #locateB { position: absolute; right: 8px; }
-        .geo-btn:hover { background: #dee2e6; color: #1c7ed6; }
-        .btn-route { background-color: #1c7ed6; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; text-align: center; }
-        .btn-route:hover { background-color: #1a6fa8; }
+        * { box-sizing: border-box; font-family: sans-serif; }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; }
+        #map { height: 100%; width: 100%; position: absolute; z-index: 1; }
+        .sidebar { position: absolute; top: 15px; left: 15px; width: 330px; background: #fff; z-index: 1000; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 12px; }
+        h2 { margin: 0; font-size: 18px; color: #1a1a1a; }
+        .input-group { display: flex; flex-direction: column; gap: 4px; position: relative; }
+        label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
+        .geo-btn { display: none; padding: 8px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 4px; border: 1px dashed #1c7ed6; background: #e9ecef; color: #1c7ed6; text-align: center; }
+        #locateB { position: absolute; right: 5px; top: 22px; padding: 5px; border: none; background: #e9ecef; }
+        .btn-route { background: #1c7ed6; color: #fff; border: none; padding: 12px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
         .leaflet-routing-container { display: none !important; }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <div>
-            <h2>Route Finder</h2>
-            <p style="margin: 5px 0 0 0; font-size: 13px; color: #868e96;">Plan your trip seamlessly</p>
-        </div>
-
+        <h2>Route Finder</h2>
         <div class="input-group">
-            <label for="pointA">Starting Point</label>
-            <div class="block-wrapper">
-                <input type="text" id="pointA" placeholder="Enter street, city, or zip...">
-                <button class="geo-btn" id="locateA" type="button">🧭 Use My Current Location</button>
-            </div>
+            <label>Starting Point</label>
+            <input type="text" id="pointA" placeholder="Enter start location...">
+            <div class="geo-btn" id="locateA">🧭 Use My Current Location</div>
         </div>
-
         <div class="input-group">
-            <label for="pointB">Destination</label>
-            <div class="input-wrapper">
-                <input type="text" id="pointB" placeholder="Where to?">
-                <button class="geo-btn" id="locateB" type="button">Use GPS</button>
-            </div>
+            <label>Destination</label>
+            <input type="text" id="pointB" placeholder="Where to?">
+            <button class="geo-btn" id="locateB" type="button">GPS</button>
         </div>
-
         <button class="btn-route" id="getDirections">Get Directions</button>
     </div>
 
@@ -62,20 +42,11 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
     <script>
-        // Initialize Map globally centered on USA first as fallback
         const map = L.map('map', { zoomControl: false }).setView([39.8283, -98.5795], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // Standard Clean Light Map Tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        L.control.zoom({ position: 'topright' }).addTo(map);
-
-        const geocoder = L.Control.Geocoder.nominatim();
         let routingControl = null;
         let startMarker = null;
 
@@ -84,114 +55,89 @@
         const btnLocateA = document.getElementById('locateA');
         const btnLocateB = document.getElementById('locateB');
 
-        // Toggle buttons on focus/blur
-        const setupFocusEvents = (inputElement, buttonElement) => {
-            inputElement.addEventListener('focus', () => buttonElement.style.display = 'block');
-            inputElement.addEventListener('blur', () => setTimeout(() => buttonElement.style.display = 'none', 200));
-        };
+        // Simple Toggle Focus Elements
+        inputA.addEventListener('focus', () => btnLocateA.style.display = 'block');
+        inputA.addEventListener('blur', () => setTimeout(() => btnLocateA.style.display = 'none', 250));
+        inputB.addEventListener('focus', () => btnLocateB.style.display = 'block');
+        inputB.addEventListener('blur', () => setTimeout(() => btnLocateB.style.display = 'none', 250));
 
-        setupFocusEvents(inputA, btnLocateA);
-        setupFocusEvents(inputB, btnLocateB);
-
-        // Automatically locate user on page load
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    
-                    // Center map on user
-                    map.setView([lat, lon], 13);
-                    
-                    // Drop a starting marker
-                    if (startMarker) map.removeLayer(startMarker);
-                    startMarker = L.marker([lat, lon]).addTo(map).bindPopup("You are here").openPopup();
-
-                    // Pre-fill input fields reverse coordinates
-                    geocoder.reverse({lat: lat, lng: lon}, 18, (results) => {
-                        if (results && results.length > 0) {
-                            inputA.value = results[0].name;
-                        } else {
-                            inputA.value = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-                        }
-                        inputA.dataset.lat = lat;
-                        inputA.dataset.lng = lon;
-                    });
-                },
-                () => { console.log("Location access denied by user on load."); }
-            );
+        // Get Address String From Nominatim Geocoder API directly
+        async function fetchAddress(lat, lon) {
+            try {
+                let res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                let data = await res.json();
+                return data.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+            } catch {
+                return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+            }
         }
 
-        const setGPSLocation = (inputField) => {
-            if (!navigator.geolocation) {
-                alert("Geolocation is not supported by your browser.");
-                return;
+        // Get Coordinates From Text Input String
+        async function fetchCoords(address) {
+            let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+            let data = await res.json();
+            if (data && data.length > 0) {
+                return L.latLng(data[0].lat, data[0].lon);
             }
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    
-                    geocoder.reverse({lat: lat, lng: lon}, 18, (results) => {
-                        if (results && results.length > 0) {
-                            inputField.value = results[0].name;
-                        } else {
-                            inputField.value = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-                        }
-                        inputField.dataset.lat = lat;
-                        inputField.dataset.lng = lon;
-                    });
-                },
-                () => alert("Unable to retrieve your location.")
-            );
-        };
+            throw new Error("Location not found: " + address);
+        }
 
-        btnLocateA.addEventListener('mousedown', () => setGPSLocation(inputA));
-        btnLocateB.addEventListener('mousedown', () => setGPSLocation(inputB));
+        // Handle GPS Location setup
+        function useGPS(inputField) {
+            if (!navigator.geolocation) return alert("GPS not supported");
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                
+                inputField.dataset.lat = lat;
+                inputField.dataset.lng = lon;
+                inputField.value = await fetchAddress(lat, lon);
 
-        const resolveLocation = (inputElement) => {
-            return new Promise((resolve, reject) => {
-                if (inputElement.dataset.lat && inputElement.dataset.lng) {
-                    resolve(L.latLng(inputElement.dataset.lat, inputElement.dataset.lng));
-                    return;
+                if (inputField === inputA) {
+                    map.setView([lat, lon], 14);
+                    if (startMarker) map.removeLayer(startMarker);
+                    startMarker = L.marker([lat, lon]).addTo(map).bindPopup("Your Location").openPopup();
                 }
-                geocoder.geocode(inputElement.value, (results) => {
-                    if (results && results.length > 0) {
-                        resolve(results[0].center);
-                    } else {
-                        reject(`Location not found: ${inputElement.value}`);
-                    }
-                });
             });
-        };
+        }
 
+        // Auto-detect location on load
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                map.setView([lat, lon], 13);
+                startMarker = L.marker([lat, lon]).addTo(map);
+                inputA.dataset.lat = lat;
+                inputA.dataset.lng = lon;
+                inputA.value = await fetchAddress(lat, lon);
+            });
+        }
+
+        // Bind custom click capture hooks
+        btnLocateA.addEventListener('mousedown', (e) => { e.preventDefault(); useGPS(inputA); });
+        btnLocateB.addEventListener('mousedown', (e) => { e.preventDefault(); useGPS(inputB); });
+
+        // Routing Logic
         document.getElementById('getDirections').addEventListener('click', async () => {
-            if (!inputA.value || !inputB.value) {
-                alert("Please fill out both starting and destination points!");
-                return;
-            }
+            if (!inputA.value || !inputB.value) return alert("Fill in both locations!");
 
             try {
-                const coordA = await resolveLocation(inputA);
-                const coordB = await resolveLocation(inputB);
+                let coordA = (inputA.dataset.lat) ? L.latLng(inputA.dataset.lat, inputA.dataset.lng) : await fetchCoords(inputA.value);
+                let coordB = (inputB.dataset.lat) ? L.latLng(inputB.dataset.lat, inputB.dataset.lng) : await fetchCoords(inputB.value);
 
-                // Clean initial marker or previous routes
                 if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
-                if (routingControl) { map.removeControl(routingControl); }
+                if (routingControl) map.removeControl(routingControl);
 
                 routingControl = L.Routing.control({
                     waypoints: [coordA, coordB],
-                    lineOptions: {
-                        styles: [{ color: '#1c7ed6', opacity: 0.8, weight: 6 }]
-                    },
-                    createMarker: function(i, waypoint, n) {
-                        return L.marker(waypoint.latLng, { draggable: true });
-                    },
+                    lineOptions: { styles: [{ color: '#1c7ed6', opacity: 0.8, weight: 6 }] },
+                    createMarker: (i, wp) => L.marker(wp.latLng, { draggable: true }),
                     addWaypoints: false
                 }).addTo(map);
 
-            } catch (error) {
-                alert(error);
+            } catch (err) {
+                alert(err.message);
             }
         });
 
